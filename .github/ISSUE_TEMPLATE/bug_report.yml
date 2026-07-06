@@ -1,0 +1,43 @@
+name: Bug report
+description: Rapporteer iets dat kapot is of anders werkt dan verwacht.
+title: "[bug]: "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Wat gebeurt er?
+      description: Beschrijf het gedrag dat je ziet.
+      placeholder: "Als ik X doe, gebeurt Y."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Wat had er moeten gebeuren?
+      placeholder: "Ik verwachtte Z."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproductie-stappen
+      description: Minimaal aantal stappen om het probleem op te roepen.
+      placeholder: |
+        1. Ga naar ...
+        2. Klik ...
+        3. Zie ...
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Omgeving
+      description: Browser, OS, versie, wat er relevant is.
+      placeholder: "Firefox 128 op macOS 15.4, prod-env, versie v1.2.3"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Plak logs of voeg een screenshot toe.
+      render: shell

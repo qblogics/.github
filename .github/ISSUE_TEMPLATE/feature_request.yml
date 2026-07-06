@@ -1,0 +1,34 @@
+name: Feature request
+description: Voorstel voor iets nieuws of een verbetering.
+title: "[feat]: "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welk probleem lost dit op?
+      description: Begin met de gebruikersnood, niet met de oplossing.
+      placeholder: "Als klant kan ik nu niet ..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Voorstel
+      description: Hoe zou het idealiter werken?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatieven overwogen?
+      description: Wat heb je nog meer overwogen en waarom niet?
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioriteit
+      options:
+        - low
+        - medium
+        - high
+      default: 1
