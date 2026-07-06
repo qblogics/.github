@@ -30,53 +30,63 @@ Body optioneel, footer voor `BREAKING CHANGE:` of `Closes #123`.
 
 ## Environments & URL-conventie
 
-Elke website-repo krijgt vier environments:
+Elke website-repo krijgt vier environments. **Enkel-niveau subdomeinen**
+(`<project>-<env>.qblogics.com`), omdat Cloudflare's gratis Universal SSL
+alleen `*.qblogics.com` (één niveau) dekt — `test.braber.qblogics.com`
+(twee niveaus) zou een TLS-fout geven.
 
-| Env | URL-patroon | Trigger | Publiek? |
+| Env | URL-patroon | Trigger | Auth |
 |---|---|---|---|
-| **dev** | `localhost:5001` per developer | lokaal opstarten (`make dev`) | Nee |
-| **preview** | `<branch>.<project>.qblogics.com` | feature-branch push naar remote | Ja (klant kijkt mee per variant) |
-| **test** | `test.<project>.qblogics.com` | merge naar `main` | Ja (klant finale check) |
-| **prod** | `<project>.qblogics.com` | git tag `v<x.y.z>` | Ja (live) |
+| **dev** | `<project>-dev.qblogics.com` | lokaal / handmatig | BasicAuth |
+| **preview** | `<project>-<branch>.qblogics.com` | PR met label `deploy-preview` | BasicAuth |
+| **test** | `<project>-test.qblogics.com` | merge naar `main` | BasicAuth |
+| **prod** | `<project>.qblogics.com` | git tag `v<x.y.z>` | publiek |
 
 ### Voorbeelden
 
 ```
-localhost:5001                        → dev van website, lokaal
-cleanup-css.website.qblogics.com      → preview van feature-branch
-test.website.qblogics.com             → test na merge naar main
-website.qblogics.com                  → prod na tag v1.2.3
+qblogics.com                → prod van de marketing-site (apex)
+website-test.qblogics.com   → test na merge naar main       (login)
+website-dev.qblogics.com    → dev                            (login)
 
-variant-a.braber.qblogics.com         → preview per variant
-test.braber.qblogics.com              → test-branch van client-werk
-braber.qblogics.com                   → prod deploy voor Braber
+braber.qblogics.com         → prod deploy voor Braber
+braber-test.qblogics.com    → test-branch van client-werk    (login)
+braber-variant-e.qblogics.com → preview per variant          (login)
 ```
 
 ### Onder de motorkap
 
-Op de server draait **Traefik** als reverse proxy op poort 80. Cloudflared
-routeert `*.qblogics.com` naar Traefik. Elke Docker-container heeft labels
-die zeggen welke subdomeinen naar welke container gaan.
+Op de server draait **Traefik** als reverse proxy op poort **:5000** (host).
+Cloudflared routeert `qblogics.com` + `*.qblogics.com` → `localhost:5000`.
+Traefik routeert daarna op hostname naar de juiste container.
 
-Nieuwe branch = nieuwe container met eigen label = automatisch bereikbaar
-op de branch-subdomain zonder cloudflared config-edit.
+**Provider**: op deze server gebruikt Traefik de **file-provider** (route-configs
+in `~/infra/traefik/dynamic/*.yml`), NIET docker-labels. Reden: de snap
+Docker-daemon (min API 1.40) en Traefik's docker-client (pingt 1.24)
+onderhandelen niet. Elk project krijgt dus een `dynamic/<project>.yml` met
+z'n routes; de docker-compose labels in de templates zijn hier decoratief.
 
-Zie [`template-web-flask/deploy/README.md`](https://github.com/qblogics/template-web-flask/blob/main/deploy/README.md)
-voor het volledige patroon.
+Een nieuw project bereikbaar maken:
+1. Container op netwerk `traefik-web` hangen.
+2. `dynamic/<project>.yml` toevoegen (prod-router publiek, dev/test/preview
+   met `middlewares: [qb-auth@file]`).
+3. Geen tunnel-edit nodig — de wildcard `*.qblogics.com` vangt alles op.
 
-### Poort-allocatie (per project)
+### Auth op dev/test/preview
 
-Interne container-poorten volgen een schema om conflicten te vermijden:
+Alle niet-prod omgevingen zitten achter een Traefik BasicAuth-middleware
+(`qb-auth@file`). Één gedeelde credential (`qblogics` + wachtwoord in
+password manager). Prod-routers laten de middleware weg.
 
-| Project | dev-poort (lokaal) | container-poort (via Traefik) |
-|---|---|---|
-| website | 5001 | 5000 |
-| braber | 4321 | 4300 |
-| sterk-op-beeld | 4322 | 4310 |
-| toekomstig | +10 per project | +10 per project |
+### Poort-allocatie
 
-Traefik ontkoppelt intern-poort van publiek-hostname; container-poort is dus
-alleen intern.
+Op de server draait alles via Traefik op hostname — **geen host-poort per
+project meer nodig**. Elke container luistert intern op zijn eigen poort
+(Flask 5000, Django 8000) en Traefik routeert ernaartoe over het
+`traefik-web` netwerk. Poort-boekhouding verdwijnt.
+
+Alleen bij **lokaal dev buiten Traefik** (los `make dev` zonder proxy) is een
+unieke host-poort handig; die staat per template in `docker-compose.dev.yml`.
 
 ## CI/CD gate
 
