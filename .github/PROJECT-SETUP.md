@@ -81,14 +81,42 @@ conventional-commit check. Config: `.pre-commit-config.yaml` (uit template).
 ## 5. Deploy naar de server (dev / test / prod)
 
 De server draait Traefik als reverse-proxy. Zie [`qblogics/infra`](https://github.com/qblogics/infra)
-voor de architectuur. Kort:
+voor de architectuur.
+
+### Gedeelde locatie (verplicht)
+
+Projecten leven op de server onder **`/mnt/data/qblogics/repos/<repo>/`** —
+NIET in een home-map. Die map is groep `qblogics` + SGID + group-write, dus
+zowel melonkon als bart kunnen er `docker compose` draaien (beiden in de
+`docker`-groep, en snap-docker leest `/mnt` via `removable-media`).
+
+```bash
+cd /mnt/data/qblogics/repos
+git clone git@github.com:qblogics/<repo>.git
+chmod -R g+w <repo>                 # group-write voor de andere beheerder
+cd <repo> && cp .env.example .env   # secrets invullen
+```
+
+### Compose project-naam pinnen
+
+Zet in `docker-compose.yml` bovenaan `name: <project>` zodat de container-naam
+en de Traefik-route stabiel blijven ongeacht de map (en, bij apps met volumes,
+de data behouden blijft):
+
+```yaml
+name: <project>
+services:
+  ...
+```
+
+### Traefik-route
 
 1. **Container op het `traefik-web` netwerk** (compose: extern netwerk `traefik-web`).
-2. **Route-file** `~/infra/traefik/dynamic/<project>.yml` op de server:
+2. **Route-file** `/mnt/data/qblogics/infra/traefik/dynamic/<project>.yml`:
    - prod-router: `Host(<project>.qblogics.com)`, publiek
    - test/dev-router: `Host(<project>-test.qblogics.com)`, `middlewares: [qb-auth@file]`
-3. Klaar — de tunnel-wildcard `*.qblogics.com` maakt het extern bereikbaar,
-   geen tunnel-edit nodig.
+3. Commit + push naar `qblogics/infra` → de cron-sync (elke 5 min) trekt het door.
+   De tunnel-wildcard `*.qblogics.com` maakt het extern bereikbaar; geen tunnel-edit.
 
 **Naamgeving** (enkel-niveau, gratis SSL):
 
